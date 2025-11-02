@@ -7,6 +7,11 @@ on:
     branches: [ main, master ]
   workflow_dispatch:  # Allow manual triggering
 
+permissions:
+  checks: write
+  pull-requests: write
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -31,9 +36,7 @@ jobs:
           --cov=src \
           --cov-report=xml \
           --cov-report=html \
-          --html=test-results/report.html \
-          --json-report \
-          --json-report-file=test-results/report.json \
+          --junit-xml=test-results/junit.xml \
           -v
     
     - name: Upload coverage report
@@ -55,7 +58,7 @@ jobs:
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
-        files: test-results/report.json
+        files: test-results/junit.xml
 
   train:
     needs: test
