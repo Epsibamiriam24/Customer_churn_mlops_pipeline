@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY Data/ Data/
 
-# Create artifacts directory and train initial model
+# Create artifacts directory and train initial model (triggering rebuild)
 RUN mkdir -p artifacts && \
     echo "Training initial model..." && \
     python src/initial_model.py
