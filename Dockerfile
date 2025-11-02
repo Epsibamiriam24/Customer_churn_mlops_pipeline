@@ -17,8 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY Data/ Data/
 
-# Copy pre-trained model artifacts (includes the correct model)
-COPY artifacts/ artifacts/
+# Create artifacts directory and train the model using the correct training script
+RUN mkdir -p artifacts && \
+    echo "Training model with correct features..." && \
+    python src/train.py --data Data/clean_train.csv --output artifacts/model.joblib
 
 # Copy the rest of the application
 COPY . .
