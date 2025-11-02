@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./Data:/app/Data
+      - ./artifacts:/app/artifacts
+      - ./mlruns:/app/mlruns
+    environment:
+      - PYTHONPATH=/app
+    command: streamlit run src/app/streamlit_app.py
