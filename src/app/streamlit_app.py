@@ -81,17 +81,17 @@ with tab1:
             st.write("Enter Customer Details:")
             age = st.number_input("Age", min_value=18, max_value=100, value=30)
             gender = st.selectbox("Gender", ["Male", "Female"])
-            tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=12)
+            tenure = st.number_input("Tenure", min_value=0, max_value=100, value=12)
             usage_frequency = st.number_input("Usage Frequency", min_value=0, max_value=100, value=10)
             support_calls = st.number_input("Support Calls", min_value=0, max_value=50, value=0)
-            payment_delay = st.number_input("Payment Delay (days)", min_value=0, max_value=90, value=0)
+            payment_delay = st.number_input("Payment Delay", min_value=0, max_value=90, value=0)
             
             # Subscription and Contract
             st.write("Subscription and Contract Details:")
             subscription_type = st.selectbox("Subscription Type", ["Basic", "Standard", "Premium"])
             contract_length = st.selectbox("Contract Length", ["Monthly", "Quarterly", "Annual"])
-            total_spend = st.number_input("Total Spend ($)", min_value=0.0, value=100.0)
-            days_since_last_interaction = st.number_input("Days Since Last Interaction", min_value=0, max_value=365, value=7)
+            total_spend = st.number_input("Total Spend", min_value=0.0, value=100.0)
+            days_since_last_interaction = st.number_input("Last Interaction", min_value=0, max_value=365, value=7)
             
             submitted = st.form_submit_button("Predict Churn")
             
@@ -99,6 +99,7 @@ with tab1:
                 try:
                     # Create a DataFrame with the input data
                     input_data = pd.DataFrame({
+                        'CustomerID': [1],  # Dummy ID that will be dropped
                         'Age': [age],
                         'Gender': [gender],
                         'Tenure': [tenure],
@@ -108,7 +109,7 @@ with tab1:
                         'Subscription Type': [subscription_type],
                         'Contract Length': [contract_length],
                         'Total Spend': [total_spend],
-                        'days_since_last_interaction': [days_since_last_interaction]
+                        'Last Interaction': [days_since_last_interaction]
                     })
                     
                     # Encode categorical variables using saved label encoders
@@ -247,76 +248,6 @@ with tab3:
                 columns=['Predicted No Churn', 'Predicted Churn']
             )
             st.dataframe(cm_df)
-
-# Load the model
-@st.cache_resource
-def load_model():
-    try:
-        # Try loading from artifacts directory first (Docker container)
-        model_path = Path("artifacts") / "model.joblib"
-        if model_path.exists():
-            return joblib.load(model_path)
-        
-        # Fallback to development path
-        model_path = Path(src_dir).parent / "artifacts" / "model.joblib"
-        if model_path.exists():
-            return joblib.load(model_path)
-        
-        st.error("Model not found! Please train the model first.")
-        return None
-    except Exception as e:
-        st.error(f"Error loading model: {str(e)}")
-        return None
-
-model_data = load_model()
-
-if model_data is None:
-    st.stop()
-
-# File uploader
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv", key="main_predictions")
-
-if uploaded_file is not None:
-    # Load and display the data
-    df = pd.read_csv(uploaded_file)
-    st.subheader("Data Preview")
-    st.dataframe(df.head())
-    
-    # Process the data
-    if st.button("Predict Churn"):
-        try:
-            # Preprocess the data
-            df = drop_identifier_columns(df)
-            df = convert_last_interaction(df)
-            
-            # Get predictions
-            predictions = model_data["model"].predict(df)
-            prob_predictions = model_data["model"].predict_proba(df)
-            
-            # Add predictions to dataframe
-            results = pd.DataFrame({
-                "Churn Probability": prob_predictions[:, 1],
-                "Prediction": ["Churn" if p == 1 else "No Churn" for p in predictions]
-            })
-            
-            # Display results
-            st.subheader("Prediction Results")
-            st.dataframe(results)
-            
-            # Show distribution of predictions
-            st.subheader("Prediction Distribution")
-            st.bar_chart(results["Prediction"].value_counts())
-            
-            # Download button for predictions
-            st.download_button(
-                label="Download Predictions",
-                data=results.to_csv(index=False),
-                file_name="churn_predictions.csv",
-                mime="text/csv"
-            )
-            
-        except Exception as e:
-            st.error(f"Error during prediction: {str(e)}")
 
 # Show model information
 st.sidebar.header("Model Information")
