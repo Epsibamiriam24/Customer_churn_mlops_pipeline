@@ -19,22 +19,22 @@ from train import (
 
 # Set page config
 st.set_page_config(
-    page_title="Customer Churn Predictor v2",
-    page_icon="🎯",
+    page_title="Customer Churn Predictor - Auto Deploy Test",
+    page_icon="✨",
     layout="wide"
 )
 
 # Initialize MLflow
 mlflow.set_tracking_uri("file:" + str(Path(src_dir).parent / "mlruns"))
 
-def get_recommendation(churn_prob, contract, monthly_charges, tenure):
+def get_recommendation(churn_prob, contract_length, total_spend, tenure):
     if churn_prob < 0.3:
         return "Customer appears stable. Consider upselling premium services."
     elif churn_prob < 0.6:
         recommendations = []
-        if contract == "Month-to-month":
+        if contract_length == "Monthly":
             recommendations.append("Offer annual contract with discount")
-        if monthly_charges > 70:
+        if total_spend > 500:
             recommendations.append("Review current plan for cost-saving opportunities")
         if tenure < 12:
             recommendations.append("Provide early loyalty rewards")
@@ -79,23 +79,19 @@ with tab1:
         with st.form("customer_form"):
             # Customer details
             st.write("Enter Customer Details:")
+            age = st.number_input("Age", min_value=18, max_value=100, value=30)
+            gender = st.selectbox("Gender", ["Male", "Female"])
             tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=12)
-            monthly_charges = st.number_input("Monthly Charges ($)", min_value=0.0, max_value=1000.0, value=50.0)
-            total_charges = st.number_input("Total Charges ($)", min_value=0.0, value=monthly_charges * tenure)
+            usage_frequency = st.number_input("Usage Frequency", min_value=0, max_value=100, value=10)
+            support_calls = st.number_input("Support Calls", min_value=0, max_value=50, value=0)
+            payment_delay = st.number_input("Payment Delay (days)", min_value=0, max_value=90, value=0)
             
-            # Services
-            st.write("Services Subscribed:")
-            internet_service = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-            online_security = st.selectbox("Online Security", ["Yes", "No", "No internet service"])
-            online_backup = st.selectbox("Online Backup", ["Yes", "No", "No internet service"])
-            tech_support = st.selectbox("Tech Support", ["Yes", "No", "No internet service"])
-            
-            # Contract and Payment
-            st.write("Contract and Payment:")
-            contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
-            payment_method = st.selectbox("Payment Method", 
-                ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
-            paperless_billing = st.selectbox("Paperless Billing", ["Yes", "No"])
+            # Subscription and Contract
+            st.write("Subscription and Contract Details:")
+            subscription_type = st.selectbox("Subscription Type", ["Basic", "Standard", "Premium"])
+            contract_length = st.selectbox("Contract Length", ["Monthly", "Quarterly", "Annual"])
+            total_spend = st.number_input("Total Spend ($)", min_value=0.0, value=100.0)
+            days_since_last_interaction = st.number_input("Days Since Last Interaction", min_value=0, max_value=365, value=7)
             
             submitted = st.form_submit_button("Predict Churn")
             
@@ -103,16 +99,16 @@ with tab1:
                 try:
                     # Create a DataFrame with the input data
                     input_data = pd.DataFrame({
-                        'tenure': [tenure],
-                        'MonthlyCharges': [monthly_charges],
-                        'TotalCharges': [total_charges],
-                        'InternetService': [internet_service],
-                        'OnlineSecurity': [online_security],
-                        'OnlineBackup': [online_backup],
-                        'TechSupport': [tech_support],
-                        'Contract': [contract],
-                        'PaymentMethod': [payment_method],
-                        'PaperlessBilling': [paperless_billing]
+                        'Age': [age],
+                        'Gender': [gender],
+                        'Tenure': [tenure],
+                        'Usage Frequency': [usage_frequency],
+                        'Support Calls': [support_calls],
+                        'Payment Delay': [payment_delay],
+                        'Subscription Type': [subscription_type],
+                        'Contract Length': [contract_length],
+                        'Total Spend': [total_spend],
+                        'days_since_last_interaction': [days_since_last_interaction]
                     })
                     
                     # Encode categorical variables using saved label encoders
@@ -132,7 +128,7 @@ with tab1:
                     - **Churn Probability:** {prob:.1%}
                     
                     #### Recommendation:
-                    {get_recommendation(prob, contract, monthly_charges, tenure)}
+                    {get_recommendation(prob, contract_length, total_spend, tenure)}
                     """)
                     
                 except Exception as e:
@@ -142,7 +138,7 @@ with tab1:
         st.subheader("Batch Predictions")
         st.write("Upload a CSV file for batch predictions")
         
-        uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+        uploaded_file = st.file_uploader("Choose a CSV file", type="csv", key="batch_predictions")
         
         if uploaded_file is not None:
             try:
@@ -278,7 +274,7 @@ if model_data is None:
     st.stop()
 
 # File uploader
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+uploaded_file = st.file_uploader("Choose a CSV file", type="csv", key="main_predictions")
 
 if uploaded_file is not None:
     # Load and display the data
