@@ -34,14 +34,77 @@ tab1, tab2, tab3 = st.tabs(["Predict", "Train Model", "Model Performance"])
 with tab1:
     st.write("Upload customer data to predict churn probability")
 
+with tab2:
+    st.header("Train New Model")
+    
+    # File uploaders for training data
+    train_file = st.file_uploader("Upload Training Data (CSV)", type="csv", key="train")
+    test_file = st.file_uploader("Upload Test Data (CSV)", type="csv", key="test")
+    
+    if train_file and test_file:
+        if st.button("Train New Model"):
+            try:
+                # Load data
+                train_data = pd.read_csv(train_file)
+                test_data = pd.read_csv(test_file)
+                
+                # Train model
+                model_info = run_train(train_data, test_data)
+                
+                # Save model
+                model_path = Path("artifacts") / "model.joblib"
+                model_path.parent.mkdir(parents=True, exist_ok=True)
+                joblib.dump(model_info, model_path)
+                
+                st.success("Model trained successfully! You can now use it for predictions.")
+                st.experimental_rerun()  # Reload the app to use new model
+            except Exception as e:
+                st.error(f"Error during training: {str(e)}")
+
+with tab3:
+    st.header("Model Performance")
+    model = load_model()
+    
+    if model is not None and isinstance(model, dict):
+        # Display metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Accuracy", f"{model.get('accuracy', 0):.2%}")
+        with col2:
+            st.metric("Precision", f"{model.get('precision', 0):.2%}")
+        with col3:
+            st.metric("Recall", f"{model.get('recall', 0):.2%}")
+        
+        # Display confusion matrix if available
+        if 'confusion_matrix' in model:
+            st.subheader("Confusion Matrix")
+            cm = model['confusion_matrix']
+            cm_df = pd.DataFrame(
+                cm,
+                index=['Actual No Churn', 'Actual Churn'],
+                columns=['Predicted No Churn', 'Predicted Churn']
+            )
+            st.dataframe(cm_df)
+
 # Load the model
 @st.cache_resource
 def load_model():
-    model_path = Path(src_dir).parent / "artifacts" / "model.joblib"
-    if not model_path.exists():
+    try:
+        # Try loading from artifacts directory first (Docker container)
+        model_path = Path("artifacts") / "model.joblib"
+        if model_path.exists():
+            return joblib.load(model_path)
+        
+        # Fallback to development path
+        model_path = Path(src_dir).parent / "artifacts" / "model.joblib"
+        if model_path.exists():
+            return joblib.load(model_path)
+        
         st.error("Model not found! Please train the model first.")
         return None
-    return joblib.load(model_path)
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None
 
 model_data = load_model()
 
