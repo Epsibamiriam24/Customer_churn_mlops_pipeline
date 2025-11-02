@@ -25,8 +25,8 @@ from train import (
 
 # Set page config
 st.set_page_config(
-    page_title="Customer Churn Predictor - Auto Deploy Test",
-    page_icon="✨",
+    page_title="Customer Churn Predictor",
+    page_icon="🎯",
     layout="wide"
 )
 
