@@ -350,22 +350,36 @@ with tab2:
     if train_file and test_file:
         if st.button("Train New Model"):
             try:
-                # Load data
+                # Save uploaded files temporarily
+                temp_dir = Path("temp_uploads")
+                temp_dir.mkdir(exist_ok=True)
+                
+                train_path = temp_dir / "temp_train.csv"
+                test_path = temp_dir / "temp_test.csv"
+                
+                # Read and save the uploaded files
                 train_data = pd.read_csv(train_file)
                 test_data = pd.read_csv(test_file)
+                train_data.to_csv(train_path, index=False)
+                test_data.to_csv(test_path, index=False)
                 
-                # Train model
-                model_info = run_train(train_data, test_data)
-                
-                # Save model
+                # Train model using file paths
                 model_path = Path("artifacts") / "model.joblib"
-                model_path.parent.mkdir(parents=True, exist_ok=True)
-                joblib.dump(model_info, model_path)
+                model_info = run_train(str(train_path), str(test_path), out_path=str(model_path))
                 
-                st.success("Model trained successfully! You can now use it for predictions.")
+                # Clean up temp files
+                train_path.unlink()
+                test_path.unlink()
+                temp_dir.rmdir()
+                
+                st.success("✅ Model trained successfully! You can now use it for predictions.")
                 st.experimental_rerun()  # Reload the app to use new model
             except Exception as e:
-                st.error(f"Error during training: {str(e)}")
+                st.error(f"❌ Error during training: {str(e)}")
+                st.write("**Debug info:**")
+                st.write(f"Error type: {type(e).__name__}")
+                import traceback
+                st.code(traceback.format_exc())
 
 with tab3:
     st.header("Model Performance")
