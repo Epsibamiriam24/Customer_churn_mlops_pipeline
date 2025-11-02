@@ -107,21 +107,66 @@ jobs:
           echo "Checking for customer-churn image:"
           docker images | grep customer-churn || echo "Note: Image may have a different name in the build cache"
 
-  # Job 3: Success notification
-  notify:
-    name: Build Status
+  # Job 3: Deploy to Render
+  deploy:
+    name: Deploy to Render
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: build
+    timeout-minutes: 10
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    
+    steps:
+      - name: Trigger Render Deployment
+        run: |
+          echo "🚀 Triggering deployment to Render..."
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+            echo "✅ Deployment triggered successfully!"
+            echo "⏳ Render will now build and deploy your application."
+            echo "📍 Check your Render dashboard for deployment status."
+          else
+            echo "⚠️ RENDER_DEPLOY_HOOK_URL secret not configured."
+            echo "ℹ️ To enable auto-deployment:"
+            echo "   1. Create a web service on Render.com"
+            echo "   2. Get the deploy hook URL from Settings"
+            echo "   3. Add it as RENDER_DEPLOY_HOOK_URL in GitHub Secrets"
+            echo ""
+            echo "📝 For now, deployment is skipped but build was successful!"
+          fi
+
+  # Job 4: Success notification
+  notify:
+    name: Build & Deploy Status
+    runs-on: ubuntu-latest
+    needs: [test, build, deploy]
     if: always()
     
     steps:
       - name: Report status
         run: |
-          if [ "${{ needs.build.result }}" == "success" ]; then
-            echo "✅ Build successful!"
+          echo "================================================"
+          echo "           CI/CD PIPELINE SUMMARY"
+          echo "================================================"
+          echo ""
+          echo "Test Result:   ${{ needs.test.result }}"
+          echo "Build Result:  ${{ needs.build.result }}"
+          echo "Deploy Result: ${{ needs.deploy.result }}"
+          echo ""
+          
+          if [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ BUILD SUCCESSFUL!"
             echo "All tests passed and Docker image built successfully."
+            
+            if [ "${{ needs.deploy.result }}" == "success" ]; then
+              echo "🚀 DEPLOYMENT TRIGGERED!"
+              echo "Your app is being deployed to Render."
+            elif [ "${{ needs.deploy.result }}" == "skipped" ]; then
+              echo "⚠️ Deployment was skipped (configure RENDER_DEPLOY_HOOK_URL to enable)"
+            fi
           else
-            echo "❌ Build failed!"
+            echo "❌ BUILD FAILED!"
             echo "Check the logs above for details."
             exit 1
           fi
+          echo ""
+          echo "================================================"
