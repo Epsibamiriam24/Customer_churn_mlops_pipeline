@@ -15,10 +15,14 @@ jobs:
   test:
     name: Test and Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -59,80 +63,53 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  # Job 2: Build and push Docker image
+  # Job 2: Build Docker image (locally, no push for now)
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 45
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/customer-churn:latest
-            ${{ secrets.DOCKER_USERNAME }}/customer-churn:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/customer-churn:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/customer-churn:buildcache,mode=max
-
-  # Job 3: Deploy to Render
-  deploy:
-    name: Deploy to Render
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    
-    steps:
-      - name: Trigger Render Deployment
-        run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          push: false
+          tags: customer-churn:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       
-      - name: Wait for deployment
-        run: sleep 60
-      
-      - name: Check deployment health
+      - name: Test Docker image
         run: |
-          echo "Checking application health..."
-          for i in {1..10}; do
-            if curl -f ${{ secrets.RENDER_APP_URL }}/_stcore/health; then
-              echo "Application is healthy!"
-              exit 0
-            fi
-            echo "Attempt $i failed, retrying..."
-            sleep 10
-          done
-          echo "Health check failed"
-          exit 1
+          echo "Docker image built successfully!"
+          docker images | grep customer-churn
 
-  # Job 4: Notify deployment status
+  # Job 3: Success notification
   notify:
-    name: Notify Deployment Status
+    name: Build Status
     runs-on: ubuntu-latest
-    needs: [test, build, deploy]
+    needs: [test, build]
     if: always()
     
     steps:
-      - name: Send notification
+      - name: Report status
         run: |
-          if [ "${{ needs.deploy.result }}" == "success" ]; then
-            echo "✅ Deployment successful!"
-            # Add Slack/Email notification here if needed
+          if [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ Build successful!"
+            echo "All tests passed and Docker image built successfully."
           else
-            echo "❌ Deployment failed!"
-            # Add failure notification here
+            echo "❌ Build failed!"
+            echo "Check the logs above for details."
+            exit 1
           fi
