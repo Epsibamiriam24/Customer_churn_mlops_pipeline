@@ -1,4 +1,4 @@
-FROM python:3.9-slim as builder
+FROM python:3.9-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -20,7 +20,7 @@ COPY Data/ Data/
 # Create artifacts directory and train the model using the correct training script
 RUN mkdir -p artifacts && \
     echo "Training model with correct features..." && \
-    python src/train.py --data Data/clean_train.csv --output artifacts/model.joblib
+    python src/train.py --train Data/clean_train.csv --test Data/clean_test.csv --out artifacts/model.joblib
 
 # Copy the rest of the application
 COPY . .
@@ -36,11 +36,11 @@ HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 # Expose the port
 EXPOSE 8501
 
-# Command to run the Streamlit app (updated)
-CMD streamlit run src/app/streamlit_app.py \
-    --server.port $PORT \
-    --server.address 0.0.0.0 \
-    --server.headless true \
-    --browser.serverAddress="0.0.0.0" \
-    --server.enableCORS true \
-    --server.enableXsrfProtection true
+# Command to run the Streamlit app (using JSON format for better signal handling)
+CMD ["streamlit", "run", "src/app/streamlit_app.py", \
+    "--server.port", "8501", \
+    "--server.address", "0.0.0.0", \
+    "--server.headless", "true", \
+    "--browser.serverAddress=0.0.0.0", \
+    "--server.enableCORS", "true", \
+    "--server.enableXsrfProtection", "true"]
