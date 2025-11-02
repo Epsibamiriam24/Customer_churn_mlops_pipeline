@@ -2,10 +2,16 @@ import streamlit as st
 import pandas as pd
 import joblib
 import sys
-import mlflow
-import mlflow.sklearn
 from pathlib import Path
 from datetime import datetime
+
+# Optional mlflow import
+try:
+    import mlflow
+    import mlflow.sklearn
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
 
 # Add the src directory to the path so we can import our modules
 src_dir = Path(__file__).parent.parent
@@ -24,8 +30,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize MLflow
-mlflow.set_tracking_uri("file:" + str(Path(src_dir).parent / "mlruns"))
+# Initialize MLflow (if available)
+if MLFLOW_AVAILABLE:
+    mlflow.set_tracking_uri("file:" + str(Path(src_dir).parent / "mlruns"))
 
 def get_recommendation(churn_prob, contract_length, total_spend, tenure):
     if churn_prob < 0.3:
@@ -69,71 +76,206 @@ st.title("Customer Churn Prediction")
 tab1, tab2, tab3 = st.tabs(["Predict", "Train Model", "Model Performance"])
 
 with tab1:
-    st.write("Predict customer churn probability")
+    st.write("### 🔮 Predict Customer Churn Probability")
+    st.write("Enter customer details below to predict churn risk")
     
-    # Create two columns
-    col1, col2 = st.columns(2)
+    # Show model accuracy warning if low
+    if model_data and model_data.get("accuracy"):
+        if model_data["accuracy"] < 0.70:
+            st.warning(f"⚠️ Note: Current model accuracy is {model_data['accuracy']:.1%}. Consider retraining the model for better predictions.")
+        else:
+            st.info(f"✓ Model accuracy: {model_data['accuracy']:.1%}")
     
-    with col1:
-        st.subheader("Single Customer Prediction")
-        with st.form("customer_form"):
-            # Customer details
-            st.write("Enter Customer Details:")
-            age = st.number_input("Age", min_value=18, max_value=100, value=30)
-            gender = st.selectbox("Gender", ["Male", "Female"])
-            tenure = st.number_input("Tenure", min_value=0, max_value=100, value=12)
-            usage_frequency = st.number_input("Usage Frequency", min_value=0, max_value=100, value=10)
-            support_calls = st.number_input("Support Calls", min_value=0, max_value=50, value=0)
-            payment_delay = st.number_input("Payment Delay", min_value=0, max_value=90, value=0)
-            
-            # Subscription and Contract
-            st.write("Subscription and Contract Details:")
-            subscription_type = st.selectbox("Subscription Type", ["Basic", "Standard", "Premium"])
-            contract_length = st.selectbox("Contract Length", ["Monthly", "Quarterly", "Annual"])
-            total_spend = st.number_input("Total Spend", min_value=0.0, value=100.0)
-            days_since_last_interaction = st.number_input("Last Interaction", min_value=0, max_value=365, value=7)
-            
-            submitted = st.form_submit_button("Predict Churn")
+    if model_data is None:
+        st.error("❌ Model not loaded! Please train the model first in the 'Train Model' tab.")
+    else:
+        # Create two columns for better layout
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📊 Customer Information")
+            with st.form("customer_form"):
+                # Primary inputs (highlighted)
+                st.markdown("#### 🎯 Key Financial Metrics")
+                tenure = st.number_input(
+                    "Tenure (months with company)", 
+                    min_value=0, 
+                    max_value=100, 
+                    value=12,
+                    help="Number of months the customer has been with the company"
+                )
+                
+                # Calculate MonthlyCharges from Total Spend and Tenure
+                total_spend = st.number_input(
+                    "Total Spend ($)", 
+                    min_value=0.0, 
+                    value=500.0,
+                    step=50.0,
+                    help="Total amount spent by the customer"
+                )
+                
+                # Display calculated Monthly Charges
+                monthly_charges = total_spend / tenure if tenure > 0 else 0
+                st.metric("Calculated Monthly Charges", f"${monthly_charges:.2f}")
+                
+                st.markdown("---")
+                
+                # Other customer details
+                st.markdown("#### 👤 Demographics")
+                age = st.number_input("Age", min_value=18, max_value=100, value=35)
+                gender = st.selectbox("Gender", ["male", "female"])
+                
+                st.markdown("#### 📱 Usage & Support")
+                usage_frequency = st.slider("Usage Frequency (per month)", min_value=0, max_value=50, value=10)
+                support_calls = st.slider("Support Calls (last month)", min_value=0, max_value=20, value=2)
+                payment_delay = st.slider("Payment Delay (days)", min_value=0, max_value=90, value=0)
+                
+                st.markdown("#### 📋 Subscription Details")
+                subscription_type = st.selectbox("Subscription Type", ["basic", "standard", "premium"])
+                contract_length = st.selectbox("Contract Length", ["monthly", "quarterly", "annual"])
+                days_since_last_interaction = st.number_input(
+                    "Days Since Last Interaction", 
+                    min_value=0, 
+                    max_value=30000, 
+                    value=30,
+                    help="Number of days since the last customer interaction"
+                )
+                
+                submitted = st.form_submit_button("🔍 Predict Churn", use_container_width=True)
+                
+        with col2:
+            st.subheader("📈 Prediction Results")
             
             if submitted:
                 try:
-                    # Create a DataFrame with the input data
+                    # Create a DataFrame with the input data in the exact order and format
+                    # that the model expects based on the training data
                     input_data = pd.DataFrame({
-                        'CustomerID': [1],  # Dummy ID that will be dropped
-                        'Age': [age],
-                        'Gender': [gender],
-                        'Tenure': [tenure],
-                        'Usage Frequency': [usage_frequency],
-                        'Support Calls': [support_calls],
-                        'Payment Delay': [payment_delay],
-                        'Subscription Type': [subscription_type],
-                        'Contract Length': [contract_length],
-                        'Total Spend': [total_spend],
-                        'Last Interaction': [days_since_last_interaction]
+                        'Age': [float(age)],
+                        'Gender': [gender.lower()],  # Ensure lowercase
+                        'Tenure': [float(tenure)],
+                        'Usage Frequency': [float(usage_frequency)],
+                        'Support Calls': [float(support_calls)],
+                        'Payment Delay': [float(payment_delay)],
+                        'Subscription Type': [subscription_type.lower()],  # Ensure lowercase
+                        'Contract Length': [contract_length.lower()],  # Ensure lowercase
+                        'Total Spend': [float(total_spend)],
+                        'Last Interaction': [float(days_since_last_interaction)]
                     })
                     
-                    # Encode categorical variables using saved label encoders
-                    for col, le in model_data.get("label_encoders", {}).items():
-                        if col in input_data.columns:
-                            input_data[col] = le.transform(input_data[col])
+                    # Debug: Show the input data
+                    with st.expander("🔍 Debug: Input Data"):
+                        st.write("**Input DataFrame:**")
+                        st.dataframe(input_data)
+                        st.write("**Data Types:**")
+                        st.write(input_data.dtypes)
+                        st.write("**Expected Features:**")
+                        st.write(f"Numeric: {model_data['numeric_cols']}")
+                        st.write(f"Categorical: {model_data['categorical_cols']}")
                     
                     # Make prediction
-                    prob = model_data["model"].predict_proba(input_data)[0, 1]
-                    prediction = "Likely to Churn" if prob > 0.5 else "Likely to Stay"
+                    prediction = model_data["model"].predict(input_data)[0]
+                    prob_array = model_data["model"].predict_proba(input_data)[0]
+                    prob = prob_array[1]  # Probability of churn (class 1)
                     
-                    # Show prediction with nice formatting
-                    st.success("Prediction Complete!")
-                    st.markdown(f"""
-                    ### Results:
-                    - **Prediction:** {prediction}
-                    - **Churn Probability:** {prob:.1%}
+                    # Debug: Show raw prediction
+                    with st.expander("🔍 Debug: Prediction Details"):
+                        st.write(f"**Raw Prediction:** {prediction}")
+                        st.write(f"**Probability Array:** {prob_array}")
+                        st.write(f"**P(No Churn):** {prob_array[0]:.4f}")
+                        st.write(f"**P(Churn):** {prob_array[1]:.4f}")
                     
-                    #### Recommendation:
-                    {get_recommendation(prob, contract_length, total_spend, tenure)}
-                    """)
+                    # Display results with visual indicators
+                    # Prediction: 0 = No Churn (Negative), 1 = Churn (Positive)
+                    if prediction == 0:
+                        st.success("✅ CUSTOMER WILL LIKELY STAY (Predicted: No Churn)")
+                        prediction_label = "No Churn (Negative)"
+                    else:
+                        st.error("⚠️ CUSTOMER WILL LIKELY CHURN (Predicted: Churn)")
+                        prediction_label = "Churn (Positive)"
+                    
+                    # Risk level based on probability
+                    if prob > 0.7:
+                        risk_level = "High"
+                        color = "red"
+                    elif prob > 0.4:
+                        risk_level = "Medium"
+                        color = "orange"
+                    else:
+                        risk_level = "Low"
+                        color = "green"
+                    
+                    # Show detailed metrics
+                    st.markdown("---")
+                    
+                    # Create metric columns
+                    metric_col1, metric_col2, metric_col3 = st.columns(3)
+                    with metric_col1:
+                        st.metric("Prediction", prediction_label)
+                    with metric_col2:
+                        st.metric("Churn Probability", f"{prob:.1%}")
+                    with metric_col3:
+                        st.metric("Risk Level", risk_level)
+                    
+                    # Show prediction details
+                    st.markdown("### 📊 Customer Summary")
+                    summary_data = {
+                        "Metric": [
+                            "Tenure",
+                            "Monthly Charges",
+                            "Total Spend",
+                            "Contract Type",
+                            "Subscription",
+                            "Usage Frequency",
+                            "Support Calls"
+                        ],
+                        "Value": [
+                            f"{tenure} months",
+                            f"${monthly_charges:.2f}",
+                            f"${total_spend:.2f}",
+                            contract_length.capitalize(),
+                            subscription_type.capitalize(),
+                            f"{usage_frequency}/month",
+                            f"{support_calls}"
+                        ]
+                    }
+                    st.table(pd.DataFrame(summary_data))
+                    
+                    # Recommendations
+                    st.markdown("### 💡 Recommendations")
+                    recommendation = get_recommendation(prob, contract_length, total_spend, tenure)
+                    st.info(recommendation)
+                    
+                    # Additional insights
+                    st.markdown("### 🎯 Key Insights")
+                    insights = []
+                    
+                    if tenure < 12:
+                        insights.append("• Customer is new (tenure < 12 months) - Higher churn risk")
+                    if monthly_charges > 80:
+                        insights.append("• High monthly charges - Consider offering discounts")
+                    if support_calls > 5:
+                        insights.append("• High support calls - Indicates potential service issues")
+                    if contract_length == "monthly":
+                        insights.append("• Month-to-month contract - Consider offering annual contract incentives")
+                    if payment_delay > 10:
+                        insights.append("• Payment delays detected - Financial issues may indicate churn risk")
+                    if usage_frequency < 5:
+                        insights.append("• Low usage frequency - Customer may not be engaged")
+                    
+                    if insights:
+                        for insight in insights:
+                            st.write(insight)
+                    else:
+                        st.write("• Customer profile looks stable overall")
                     
                 except Exception as e:
-                    st.error(f"Error making prediction: {str(e)}")
+                    st.error(f"❌ Error making prediction: {str(e)}")
+                    st.write("Debug info:")
+                    st.write(f"Model type: {type(model_data)}")
+                    st.write(f"Model keys: {model_data.keys() if isinstance(model_data, dict) else 'N/A'}")
+            else:
+                st.info("👈 Fill in the customer details and click 'Predict Churn' to see results")
     
     with col2:
         st.subheader("Batch Predictions")
@@ -250,19 +392,172 @@ with tab3:
             st.dataframe(cm_df)
 
 # Show model information
-st.sidebar.header("Model Information")
-if model_data.get("accuracy") is not None:
-    st.sidebar.metric("Model Accuracy", f"{model_data['accuracy']:.2%}")
-
-st.sidebar.subheader("Feature Information")
-st.sidebar.write("Numeric Features:", model_data["numeric_cols"])
-st.sidebar.write("Categorical Features:", model_data["categorical_cols"])
+st.sidebar.header("ℹ️ Model Information")
+if model_data and isinstance(model_data, dict):
+    if model_data.get("accuracy") is not None:
+        st.sidebar.metric("Model Accuracy", f"{model_data['accuracy']:.2%}")
+    
+    st.sidebar.subheader("📋 Required Features")
+    st.sidebar.write("**Numeric:**")
+    if "numeric_cols" in model_data:
+        for col in model_data["numeric_cols"]:
+            st.sidebar.write(f"• {col}")
+    
+    st.sidebar.write("**Categorical:**")
+    if "categorical_cols" in model_data:
+        for col in model_data["categorical_cols"]:
+            st.sidebar.write(f"• {col}")
+else:
+    st.sidebar.warning("Model not loaded")
 
 # Instructions
-with st.expander("How to use"):
+with st.expander("📖 How to use this app"):
     st.write("""
-    1. Upload a CSV file containing customer data
-    2. The file should contain the same features used during training
-    3. Click 'Predict Churn' to get predictions
-    4. Download the predictions using the download button
+    1. **Enter customer details** in the form on the left
+    2. Click **'Predict Churn'** button to get the prediction
+    3. View the results including churn probability and risk level
+    4. Check the **debug sections** to see detailed prediction information
+    5. For batch predictions, use the file upload feature
+    """)
+
+# Input Data Interpretation Guide
+with st.expander("📊 Input Data Interpretation Guide"):
+    st.markdown("""
+    ### Understanding Customer Input Features
+    
+    #### 🎯 **Key Financial Metrics** (Most Important)
+    
+    **1. Tenure (Months with Company)**
+    - **What it means:** How long the customer has been with the company
+    - **Impact on Churn:**
+        - 🟢 **0-6 months:** HIGH RISK - New customers are most likely to churn
+        - 🟡 **7-24 months:** MEDIUM RISK - Building loyalty
+        - 🟢 **25+ months:** LOW RISK - Established, loyal customers
+    - **Why it matters:** Longer tenure = stronger relationship = less likely to leave
+    
+    **2. Total Spend ($)**
+    - **What it means:** Total amount the customer has spent with the company
+    - **Impact on Churn:**
+        - 🔴 **$0-$200:** HIGH RISK - Low investment in service
+        - 🟡 **$201-$1000:** MEDIUM RISK - Moderate engagement
+        - 🟢 **$1000+:** LOW RISK - High value customer
+    - **Why it matters:** More invested = more to lose by leaving
+    
+    **3. Monthly Charges (Calculated)**
+    - **What it means:** Average monthly cost = Total Spend ÷ Tenure
+    - **Impact on Churn:**
+        - 🟢 **$0-$50:** LOW RISK - Affordable for customer
+        - 🟡 **$51-$100:** MEDIUM RISK - Moderate cost
+        - 🔴 **$100+:** HIGH RISK - High monthly cost may drive churn
+    - **Why it matters:** High costs can motivate customers to find cheaper alternatives
+    
+    ---
+    
+    #### 👤 **Demographics**
+    
+    **4. Age**
+    - **What it means:** Customer's age in years
+    - **Impact:** 
+        - Older customers (40+) tend to be more stable
+        - Younger customers (18-30) are more likely to switch services
+    
+    **5. Gender**
+    - **What it means:** Customer's gender (male/female)
+    - **Impact:** Minor impact on churn behavior
+    
+    ---
+    
+    #### 📱 **Usage & Support Patterns**
+    
+    **6. Usage Frequency (per month)**
+    - **What it means:** How often the customer uses the service
+    - **Impact on Churn:**
+        - 🔴 **0-5:** HIGH RISK - Not engaged with service
+        - 🟡 **6-15:** MEDIUM RISK - Moderate usage
+        - 🟢 **16+:** LOW RISK - Active, engaged user
+    - **Why it matters:** Active users are invested and less likely to leave
+    
+    **7. Support Calls (last month)**
+    - **What it means:** Number of times customer contacted support
+    - **Impact on Churn:**
+        - 🟢 **0-2:** LOW RISK - Satisfied customer
+        - 🟡 **3-5:** MEDIUM RISK - Some issues
+        - 🔴 **6+:** HIGH RISK - Frustrated customer with problems
+    - **Why it matters:** Many support calls indicate problems or dissatisfaction
+    
+    **8. Payment Delay (days)**
+    - **What it means:** Average days late on payments
+    - **Impact on Churn:**
+        - 🟢 **0:** LOW RISK - Financially stable, on-time payer
+        - 🟡 **1-15:** MEDIUM RISK - Occasional delays
+        - 🔴 **16+:** HIGH RISK - Financial difficulties or losing interest
+    - **Why it matters:** Payment issues may signal financial problems or disengagement
+    
+    ---
+    
+    #### 📋 **Subscription Details**
+    
+    **9. Subscription Type**
+    - **What it means:** Service tier the customer subscribes to
+    - **Impact on Churn:**
+        - 🔴 **Basic:** HIGH RISK - Least committed tier
+        - 🟡 **Standard:** MEDIUM RISK - Moderate commitment
+        - 🟢 **Premium:** LOW RISK - Most invested customers
+    - **Why it matters:** Premium customers have more invested and better service
+    
+    **10. Contract Length**
+    - **What it means:** Duration of customer's contract commitment
+    - **Impact on Churn:**
+        - 🔴 **Monthly:** HIGH RISK - Can leave anytime, no commitment
+        - 🟡 **Quarterly:** MEDIUM RISK - 3-month commitment
+        - 🟢 **Annual:** LOW RISK - Locked in for 1 year
+    - **Why it matters:** Longer contracts = stronger commitment = harder to leave
+    
+    **11. Days Since Last Interaction**
+    - **What it means:** How many days since customer last engaged with service
+    - **Impact on Churn:**
+        - 🟢 **0-10:** LOW RISK - Recently active
+        - 🟡 **11-30:** MEDIUM RISK - Moderate engagement
+        - 🔴 **31+:** HIGH RISK - Disengaged, may have already left
+    - **Why it matters:** Recent interaction = active customer = less likely to churn
+    
+    ---
+    
+    ### 🎯 Prediction Output Explained
+    
+    **Prediction Types:**
+    - ✅ **No Churn (Negative/0):** Customer will likely STAY
+        - This is a **True Negative** when the customer actually stays
+        - Model confidence shown as probability < 50%
+    
+    - ⚠️ **Churn (Positive/1):** Customer will likely LEAVE
+        - This is a **True Positive** when the customer actually churns
+        - Model confidence shown as probability > 50%
+    
+    **Churn Probability:**
+    - The percentage likelihood that a customer will churn
+    - 0-40%: Low risk
+    - 41-70%: Medium risk
+    - 71-100%: High risk
+    
+    **Risk Levels:**
+    - 🟢 **Low:** Customer is stable and unlikely to leave
+    - 🟡 **Medium:** Customer shows some warning signs
+    - 🔴 **High:** Customer is at serious risk of churning
+    
+    ---
+    
+    ### 💡 Example Interpretations
+    
+    **Scenario 1: Loyal Customer (Low Risk)**
+    - Tenure: 48 months, Total Spend: $2400 (Monthly: $50)
+    - Usage: 20/month, Support Calls: 1, Payment Delay: 0
+    - Premium/Annual contract, Last Interaction: 3 days
+    - **Interpretation:** Long-term, engaged customer with affordable costs and no issues
+    
+    **Scenario 2: At-Risk Customer (High Risk)**
+    - Tenure: 2 months, Total Spend: $80 (Monthly: $40)
+    - Usage: 3/month, Support Calls: 8, Payment Delay: 25
+    - Basic/Monthly contract, Last Interaction: 60 days
+    - **Interpretation:** New customer, not engaged, having problems, may have already left
     """)
