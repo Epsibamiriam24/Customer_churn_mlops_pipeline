@@ -19,8 +19,8 @@ from train import (
 
 # Set page config
 st.set_page_config(
-    page_title="Customer Churn Predictor",
-    page_icon="🔄",
+    page_title="Customer Churn Predictor v2",
+    page_icon="🎯",
     layout="wide"
 )
 
@@ -114,6 +114,11 @@ with tab1:
                         'PaymentMethod': [payment_method],
                         'PaperlessBilling': [paperless_billing]
                     })
+                    
+                    # Encode categorical variables using saved label encoders
+                    for col, le in model_data.get("label_encoders", {}).items():
+                        if col in input_data.columns:
+                            input_data[col] = le.transform(input_data[col])
                     
                     # Make prediction
                     prob = model_data["model"].predict_proba(input_data)[0, 1]

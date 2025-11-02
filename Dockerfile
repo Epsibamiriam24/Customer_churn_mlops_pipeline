@@ -13,15 +13,17 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire application including artifacts
-COPY . .
+# Copy source code first (without artifacts)
+COPY src/ src/
+COPY Data/ Data/
 
-# Ensure artifacts directory exists and train initial model if needed
+# Create artifacts directory and train initial model
 RUN mkdir -p artifacts && \
-    if [ ! -f artifacts/model.joblib ]; then \
-        echo "Training initial model..." && \
-        python src/initial_model.py; \
-    fi
+    echo "Training initial model..." && \
+    python src/initial_model.py
+
+# Copy the rest of the application
+COPY . .
 
 # Set environment variables
 ENV PORT=8501
