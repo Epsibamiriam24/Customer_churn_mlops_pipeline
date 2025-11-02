@@ -8,6 +8,13 @@ import numpy as np
 def predict_from_df(model_path, df):
     d = joblib.load(model_path)
     model = d["model"]
+    
+    # Handle 'Last Interaction' column if present
+    if "Last Interaction" in df.columns and "days_since_last_interaction" not in df.columns:
+        df["Last Interaction"] = pd.to_datetime(df["Last Interaction"], errors="coerce")
+        df["days_since_last_interaction"] = (pd.Timestamp.today() - df["Last Interaction"]).dt.days
+        df.drop(columns=["Last Interaction"], inplace=True)
+    
     # assume df contains same feature columns as training (order doesn't have to match)
     preds = model.predict(df)
     return preds

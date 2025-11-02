@@ -40,6 +40,8 @@ def main():
             st.write("### Data Preview:")
             st.write(input_df.head())
 
+            # Keep Last Interaction column as is
+
             # Check if required columns are present
             required_cols = model_data['numeric_cols'] + model_data['categorical_cols']
             missing_cols = [col for col in required_cols if col not in input_df.columns]

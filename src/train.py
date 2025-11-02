@@ -47,19 +47,7 @@ def prepare_target(series: pd.Series):
     raise ValueError(f"Cannot interpret target column values. Found unique values: {list(uniques)[:10]}")
 
 def convert_last_interaction(df: pd.DataFrame):
-    if df is None or df.shape[0] == 0:
-        return df
-    candidates = [c for c in df.columns if c.strip().lower() == "last interaction"]
-    if not candidates:
-        return df
-    col = candidates[0]
-    try:
-        dt = pd.to_datetime(df[col], errors="coerce")
-        df["days_since_last_interaction"] = (pd.Timestamp.today() - dt).dt.days
-        df = df.drop(columns=[col])
-        print(f"Converted '{col}' to 'days_since_last_interaction'")
-    except Exception as e:
-        print(f"Warning: failed to parse {col}: {e}")
+    # Keep Last Interaction as is, no conversion needed
     return df
 
 def drop_identifier_columns(df: pd.DataFrame):
