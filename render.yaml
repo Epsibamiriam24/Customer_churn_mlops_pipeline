@@ -4,7 +4,7 @@ services:
     env: docker
     plan: free
     branch: master
-    repo: https://github.com/Epsibamiriam24/Customer_churn_mlops_pipeline
+    repo: https://github.com/Epsibamiriam24/Customer_churn_mlops_pipeline.git
     region: oregon
     healthCheckPath: /
     envVars:
