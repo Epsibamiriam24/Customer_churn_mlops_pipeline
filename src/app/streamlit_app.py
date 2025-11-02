@@ -72,7 +72,8 @@ def load_model():
 model_data = load_model()
 
 # Title and Navigation
-st.title("Customer Churn Prediction")
+st.title("Customer Churn Prediction 🎯")
+st.caption("Version 2.0 - Updated UI with Complete Feature Set | Deployed: Nov 3, 2025")
 tab1, tab2, tab3 = st.tabs(["Predict", "Train Model", "Model Performance"])
 
 with tab1:
