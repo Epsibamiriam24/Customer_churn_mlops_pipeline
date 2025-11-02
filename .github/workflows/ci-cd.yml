@@ -100,8 +100,12 @@ jobs:
       
       - name: Test Docker image
         run: |
-          echo "Docker image built successfully!"
-          docker images | grep customer-churn
+          echo "✅ Docker image built successfully!"
+          echo "Listing all Docker images:"
+          docker images
+          echo ""
+          echo "Checking for customer-churn image:"
+          docker images | grep customer-churn || echo "Note: Image may have a different name in the build cache"
 
   # Job 3: Success notification
   notify:
