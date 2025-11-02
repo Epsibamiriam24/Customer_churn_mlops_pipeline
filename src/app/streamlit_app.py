@@ -161,7 +161,7 @@ with tab1:
                         'Subscription Type': [subscription_type.lower()],  # Ensure lowercase
                         'Contract Length': [contract_length.lower()],  # Ensure lowercase
                         'Total Spend': [float(total_spend)],
-                        'Last Interaction': [float(days_since_last_interaction)]
+                        'days_since_last_interaction': [float(days_since_last_interaction)]
                     })
                     
                     # Debug: Show the input data
