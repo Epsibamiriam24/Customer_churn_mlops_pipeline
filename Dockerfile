@@ -13,14 +13,12 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code first (without artifacts)
+# Copy source code and data
 COPY src/ src/
 COPY Data/ Data/
 
-# Create artifacts directory and train initial model (triggering rebuild)
-RUN mkdir -p artifacts && \
-    echo "Training initial model..." && \
-    python src/initial_model.py
+# Copy pre-trained model artifacts (includes the correct model)
+COPY artifacts/ artifacts/
 
 # Copy the rest of the application
 COPY . .
