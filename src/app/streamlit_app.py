@@ -26,9 +26,74 @@ from train import (
 # Set page config
 st.set_page_config(
     page_title="Customer Churn Predictor",
-    page_icon="🎯",
-    layout="wide"
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for color scheme
+st.markdown("""
+<style>
+    /* Main theme colors */
+    :root {
+        --primary-color: #1e3a8a;
+        --secondary-color: #3b82f6;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+    }
+    
+    /* Custom header styling */
+    .main-title {
+        color: #1e3a8a;
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Card styling */
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+        margin: 10px 0;
+    }
+    
+    /* Success/Warning colors without emojis */
+    .success-box {
+        background-color: #d1fae5;
+        border-left: 4px solid #10b981;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+    
+    .warning-box {
+        background-color: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+    
+    .danger-box {
+        background-color: #fee2e2;
+        border-left: 4px solid #ef4444;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+    
+    .info-box {
+        background-color: #dbeafe;
+        border-left: 4px solid #3b82f6;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize MLflow (if available)
 if MLFLOW_AVAILABLE:
@@ -72,32 +137,40 @@ def load_model():
 model_data = load_model()
 
 # Title and Navigation
-st.title("Customer Churn Prediction 🎯")
-st.caption("Version 2.0 - Updated UI with Complete Feature Set | Deployed: Nov 3, 2025")
+st.markdown("<h1 class='main-title'>Customer Churn Prediction System</h1>", unsafe_allow_html=True)
+st.markdown("Professional Churn Analysis and Risk Assessment Platform | Version 2.0")
 tab1, tab2, tab3 = st.tabs(["Predict", "Train Model", "Model Performance"])
 
 with tab1:
-    st.write("### 🔮 Predict Customer Churn Probability")
+    st.write("### Predict Customer Churn Probability")
     st.write("Enter customer details below to predict churn risk")
     
     # Show model accuracy warning if low
     if model_data and model_data.get("accuracy"):
         if model_data["accuracy"] < 0.70:
-            st.warning(f"⚠️ Note: Current model accuracy is {model_data['accuracy']:.1%}. Consider retraining the model for better predictions.")
+            st.markdown(f'<div class="warning-box">Note: Current model accuracy is {model_data["accuracy"]:.1%}. Consider retraining the model for better predictions.</div>', unsafe_allow_html=True)
         else:
-            st.info(f"✓ Model accuracy: {model_data['accuracy']:.1%}")
+            st.markdown(f'<div class="success-box">Model accuracy: {model_data["accuracy"]:.1%}</div>', unsafe_allow_html=True)
     
     if model_data is None:
-        st.error("❌ Model not loaded! Please train the model first in the 'Train Model' tab.")
+        st.markdown('<div class="danger-box">Model not loaded! Please train the model first in the Train Model tab.</div>', unsafe_allow_html=True)
     else:
         # Create two columns for better layout
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📊 Customer Information")
+            st.subheader("Customer Information")
             with st.form("customer_form"):
-                # Primary inputs (highlighted)
-                st.markdown("#### 🎯 Key Financial Metrics")
+                # Customer Name
+                customer_name = st.text_input(
+                    "Customer Name",
+                    value="",
+                    placeholder="Enter customer full name",
+                    help="Full name of the customer"
+                )
+                
+                st.markdown("---")
+                st.write("**Key Financial Metrics**")
                 tenure = st.number_input(
                     "Tenure (months with company)", 
                     min_value=0, 
@@ -122,16 +195,16 @@ with tab1:
                 st.markdown("---")
                 
                 # Other customer details
-                st.markdown("#### 👤 Demographics")
+                st.write("**Demographics**")
                 age = st.number_input("Age", min_value=18, max_value=100, value=35)
                 gender = st.selectbox("Gender", ["male", "female"])
                 
-                st.markdown("#### 📱 Usage & Support")
+                st.write("**Usage and Support**")
                 usage_frequency = st.slider("Usage Frequency (per month)", min_value=0, max_value=50, value=10)
                 support_calls = st.slider("Support Calls (last month)", min_value=0, max_value=20, value=2)
                 payment_delay = st.slider("Payment Delay (days)", min_value=0, max_value=90, value=0)
                 
-                st.markdown("#### 📋 Subscription Details")
+                st.write("**Subscription Details**")
                 subscription_type = st.selectbox("Subscription Type", ["basic", "standard", "premium"])
                 contract_length = st.selectbox("Contract Length", ["monthly", "quarterly", "annual"])
                 days_since_last_interaction = st.number_input(
@@ -142,45 +215,49 @@ with tab1:
                     help="Number of days since the last customer interaction"
                 )
                 
-                submitted = st.form_submit_button("🔍 Predict Churn", use_container_width=True)
+                submitted = st.form_submit_button("Predict Churn", use_container_width=True)
                 
         with col2:
-            st.subheader("📈 Prediction Results")
+            st.subheader("Prediction Results")
             
             if submitted:
                 try:
-                    # Create a DataFrame with the input data in the exact order and format
-                    # that the model expects based on the training data
-                    input_data = pd.DataFrame({
-                        'Age': [float(age)],
-                        'Gender': [gender.lower()],  # Ensure lowercase
-                        'Tenure': [float(tenure)],
-                        'Usage Frequency': [float(usage_frequency)],
-                        'Support Calls': [float(support_calls)],
-                        'Payment Delay': [float(payment_delay)],
-                        'Subscription Type': [subscription_type.lower()],  # Ensure lowercase
-                        'Contract Length': [contract_length.lower()],  # Ensure lowercase
-                        'Total Spend': [float(total_spend)],
-                        'days_since_last_interaction': [float(days_since_last_interaction)]
-                    })
-                    
-                    # Debug: Show the input data
-                    with st.expander("🔍 Debug: Input Data"):
-                        st.write("**Input DataFrame:**")
-                        st.dataframe(input_data)
-                        st.write("**Data Types:**")
-                        st.write(input_data.dtypes)
-                        st.write("**Expected Features:**")
-                        st.write(f"Numeric: {model_data['numeric_cols']}")
-                        st.write(f"Categorical: {model_data['categorical_cols']}")
-                    
-                    # Make prediction
+                    # Validate customer name
+                    if not customer_name.strip():
+                        st.warning("Please enter customer name")
+                    else:
+                        # Create a DataFrame with the input data in the exact order and format
+                        # that the model expects based on the training data
+                        input_data = pd.DataFrame({
+                            'Age': [float(age)],
+                            'Gender': [gender.lower()],  # Ensure lowercase
+                            'Tenure': [float(tenure)],
+                            'Usage Frequency': [float(usage_frequency)],
+                            'Support Calls': [float(support_calls)],
+                            'Payment Delay': [float(payment_delay)],
+                            'Subscription Type': [subscription_type.lower()],  # Ensure lowercase
+                            'Contract Length': [contract_length.lower()],  # Ensure lowercase
+                            'Total Spend': [float(total_spend)],
+                            'days_since_last_interaction': [float(days_since_last_interaction)]
+                        })
+                        
+                        # Debug: Show the input data
+                        with st.expander("Debug: Input Data"):
+                            st.write("**Input DataFrame:**")
+                            st.dataframe(input_data)
+                            st.write("**Data Types:**")
+                            st.write(input_data.dtypes)
+                            st.write("**Expected Features:**")
+                            st.write(f"Numeric: {model_data['numeric_cols']}")
+                            st.write(f"Categorical: {model_data['categorical_cols']}")
+                        
+                        # Make prediction
                     prediction = model_data["model"].predict(input_data)[0]
                     prob_array = model_data["model"].predict_proba(input_data)[0]
                     prob = prob_array[1]  # Probability of churn (class 1)
                     
                     # Debug: Show raw prediction
-                    with st.expander("🔍 Debug: Prediction Details"):
+                    with st.expander("Debug: Prediction Details"):
                         st.write(f"**Raw Prediction:** {prediction}")
                         st.write(f"**Probability Array:** {prob_array}")
                         st.write(f"**P(No Churn):** {prob_array[0]:.4f}")
@@ -189,10 +266,10 @@ with tab1:
                     # Display results with visual indicators
                     # Prediction: 0 = No Churn (Negative), 1 = Churn (Positive)
                     if prediction == 0:
-                        st.success("✅ CUSTOMER WILL LIKELY STAY (Predicted: No Churn)")
+                        st.markdown('<div class="success-box"><b>CUSTOMER WILL LIKELY STAY</b> (Predicted: No Churn)</div>', unsafe_allow_html=True)
                         prediction_label = "No Churn (Negative)"
                     else:
-                        st.error("⚠️ CUSTOMER WILL LIKELY CHURN (Predicted: Churn)")
+                        st.markdown('<div class="danger-box"><b>CUSTOMER WILL LIKELY CHURN</b> (Predicted: Churn)</div>', unsafe_allow_html=True)
                         prediction_label = "Churn (Positive)"
                     
                     # Risk level based on probability
@@ -219,7 +296,7 @@ with tab1:
                         st.metric("Risk Level", risk_level)
                     
                     # Show prediction details
-                    st.markdown("### 📊 Customer Summary")
+                    st.markdown("### Customer Summary")
                     summary_data = {
                         "Metric": [
                             "Tenure",
@@ -243,40 +320,103 @@ with tab1:
                     st.table(pd.DataFrame(summary_data))
                     
                     # Recommendations
-                    st.markdown("### 💡 Recommendations")
+                    st.markdown("### Recommendations")
                     recommendation = get_recommendation(prob, contract_length, total_spend, tenure)
-                    st.info(recommendation)
+                    st.markdown(f'<div class="info-box">{recommendation}</div>', unsafe_allow_html=True)
                     
                     # Additional insights
-                    st.markdown("### 🎯 Key Insights")
+                    st.markdown("### Key Insights")
                     insights = []
                     
                     if tenure < 12:
-                        insights.append("• Customer is new (tenure < 12 months) - Higher churn risk")
+                        insights.append("Customer is new (tenure < 12 months) - Higher churn risk")
                     if monthly_charges > 80:
-                        insights.append("• High monthly charges - Consider offering discounts")
+                        insights.append("High monthly charges - Consider offering discounts")
                     if support_calls > 5:
-                        insights.append("• High support calls - Indicates potential service issues")
+                        insights.append("High support calls - Indicates potential service issues")
                     if contract_length == "monthly":
-                        insights.append("• Month-to-month contract - Consider offering annual contract incentives")
+                        insights.append("Month-to-month contract - Consider offering annual contract incentives")
                     if payment_delay > 10:
-                        insights.append("• Payment delays detected - Financial issues may indicate churn risk")
+                        insights.append("Payment delays detected - Financial issues may indicate churn risk")
                     if usage_frequency < 5:
-                        insights.append("• Low usage frequency - Customer may not be engaged")
+                        insights.append("Low usage frequency - Customer may not be engaged")
                     
                     if insights:
                         for insight in insights:
-                            st.write(insight)
+                            st.write(f"• {insight}")
                     else:
                         st.write("• Customer profile looks stable overall")
                     
+                    # Generate Report
+                    st.markdown("---")
+                    st.markdown("### Generate Report")
+                    
+                    report_content = f"""
+CUSTOMER CHURN PREDICTION REPORT
+================================
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+CUSTOMER INFORMATION
+--------------------
+Name: {customer_name}
+Age: {age}
+Gender: {gender}
+
+SUBSCRIPTION DETAILS
+--------------------
+Tenure: {tenure} months
+Subscription Type: {subscription_type.upper()}
+Contract Length: {contract_length.upper()}
+Monthly Charges: ${monthly_charges:.2f}
+Total Spend: ${total_spend:.2f}
+
+USAGE & SUPPORT METRICS
+-----------------------
+Usage Frequency: {usage_frequency} times/month
+Support Calls: {support_calls}
+Payment Delay: {payment_delay} days
+Days Since Last Interaction: {days_since_last_interaction}
+
+PREDICTION RESULTS
+------------------
+Prediction: {prediction_label}
+Churn Probability: {prob:.1%}
+Risk Level: {risk_level}
+
+PROBABILITY DETAILS
+-------------------
+P(No Churn): {prob_array[0]:.4f}
+P(Churn): {prob_array[1]:.4f}
+
+RECOMMENDATIONS
+---------------
+{recommendation}
+
+KEY INSIGHTS
+------------
+{chr(10).join([f"• {insight}" for insight in insights]) if insights else "• Customer profile looks stable overall"}
+
+MODEL PERFORMANCE
+-----------------
+Model Accuracy: {model_data.get('accuracy', 0):.1%}
+Generated by: Customer Churn Prediction System v2.0
+"""
+                    
+                    # Download button
+                    st.download_button(
+                        label="Download Report as Text",
+                        data=report_content,
+                        file_name=f"Churn_Report_{customer_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain"
+                    )
+                    
                 except Exception as e:
-                    st.error(f"❌ Error making prediction: {str(e)}")
+                    st.markdown(f'<div class="danger-box">Error making prediction: {str(e)}</div>', unsafe_allow_html=True)
                     st.write("Debug info:")
                     st.write(f"Model type: {type(model_data)}")
                     st.write(f"Model keys: {model_data.keys() if isinstance(model_data, dict) else 'N/A'}")
             else:
-                st.info("👈 Fill in the customer details and click 'Predict Churn' to see results")
+                st.markdown('<div class="info-box">Fill in the customer details and click Predict Churn to see results</div>', unsafe_allow_html=True)
     
     with col2:
         st.subheader("Batch Predictions")
@@ -372,10 +512,10 @@ with tab2:
                 test_path.unlink()
                 temp_dir.rmdir()
                 
-                st.success("✅ Model trained successfully! You can now use it for predictions.")
+                st.markdown('<div class="success-box">Model trained successfully! You can now use it for predictions.</div>', unsafe_allow_html=True)
                 st.experimental_rerun()  # Reload the app to use new model
             except Exception as e:
-                st.error(f"❌ Error during training: {str(e)}")
+                st.markdown(f'<div class="danger-box">Error during training: {str(e)}</div>', unsafe_allow_html=True)
                 st.write("**Debug info:**")
                 st.write(f"Error type: {type(e).__name__}")
                 import traceback
@@ -407,12 +547,12 @@ with tab3:
             st.dataframe(cm_df)
 
 # Show model information
-st.sidebar.header("ℹ️ Model Information")
+st.sidebar.header("Model Information")
 if model_data and isinstance(model_data, dict):
     if model_data.get("accuracy") is not None:
         st.sidebar.metric("Model Accuracy", f"{model_data['accuracy']:.2%}")
     
-    st.sidebar.subheader("📋 Required Features")
+    st.sidebar.subheader("Required Features")
     st.sidebar.write("**Numeric:**")
     if "numeric_cols" in model_data:
         for col in model_data["numeric_cols"]:
@@ -426,17 +566,18 @@ else:
     st.sidebar.warning("Model not loaded")
 
 # Instructions
-with st.expander("📖 How to use this app"):
+with st.expander("How to use this app"):
     st.write("""
     1. **Enter customer details** in the form on the left
-    2. Click **'Predict Churn'** button to get the prediction
+    2. Click **Predict Churn** button to get the prediction
     3. View the results including churn probability and risk level
     4. Check the **debug sections** to see detailed prediction information
     5. For batch predictions, use the file upload feature
+    6. **Download the report** for your records
     """)
 
 # Input Data Interpretation Guide
-with st.expander("📊 Input Data Interpretation Guide"):
+with st.expander("Input Data Interpretation Guide"):
     st.markdown("""
     ### Understanding Customer Input Features
     
