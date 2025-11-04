@@ -12,9 +12,3 @@ services:
         value: 3.9.0
       - key: PORT
         value: 8501
-    buildFilter:
-      paths:
-        - src/**
-        - Dockerfile
-        - requirements.txt
-        - artifacts/**
