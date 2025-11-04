@@ -4,14 +4,26 @@ import joblib
 import sys
 from pathlib import Path
 from datetime import datetime
+from io import BytesIO
 
-# Optional mlflow import
+# Optional imports
 try:
     import mlflow
     import mlflow.sklearn
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
+
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 # Add the src directory to the path so we can import our modules
 src_dir = Path(__file__).parent.parent
@@ -104,7 +116,7 @@ def get_recommendation(churn_prob, contract_length, total_spend, tenure):
         return "Customer appears stable. Consider upselling premium services."
     elif churn_prob < 0.6:
         recommendations = []
-        if contract_length == "Monthly":
+        if contract_length == "monthly":
             recommendations.append("Offer annual contract with discount")
         if total_spend > 500:
             recommendations.append("Review current plan for cost-saving opportunities")
@@ -112,7 +124,187 @@ def get_recommendation(churn_prob, contract_length, total_spend, tenure):
             recommendations.append("Provide early loyalty rewards")
         return " • " + "\n • ".join(recommendations) if recommendations else "Monitor customer satisfaction"
     else:
-        return "⚠️ High churn risk! Immediate retention actions needed:\n • Contact customer for feedback\n • Offer personalized retention package\n • Consider service upgrades or discounts"
+        return "High churn risk! Immediate retention actions needed:\n • Contact customer for feedback\n • Offer personalized retention package\n • Consider service upgrades or discounts"
+
+def generate_pdf_report(customer_name, age, gender, tenure, monthly_charges, total_spend, 
+                       contract_length, subscription_type, usage_frequency, support_calls,
+                       payment_delay, days_since_last_interaction, prediction_label, 
+                       prob, risk_level, prob_array, insights, recommendation, model_accuracy):
+    """Generate a professional PDF report"""
+    if not PDF_AVAILABLE:
+        return None
+    
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib import colors
+    
+    # Create BytesIO buffer
+    buffer = BytesIO()
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#1e3a8a'),
+        spaceAfter=12,
+        alignment=1
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#3b82f6'),
+        spaceAfter=8,
+        spaceBefore=8
+    )
+    
+    # Title
+    elements.append(Paragraph("CUSTOMER CHURN PREDICTION REPORT", title_style))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Customer Information Section
+    elements.append(Paragraph("CUSTOMER INFORMATION", heading_style))
+    customer_data = [
+        ['Field', 'Value'],
+        ['Name', customer_name],
+        ['Age', str(age)],
+        ['Gender', gender.upper()]
+    ]
+    customer_table = Table(customer_data, colWidths=[2*inch, 4*inch])
+    customer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#3b82f6')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#dbeafe')])
+    ]))
+    elements.append(customer_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Subscription Details
+    elements.append(Paragraph("SUBSCRIPTION DETAILS", heading_style))
+    sub_data = [
+        ['Metric', 'Value'],
+        ['Tenure', f"{tenure} months"],
+        ['Subscription Type', subscription_type.upper()],
+        ['Contract Length', contract_length.upper()],
+        ['Monthly Charges', f"${monthly_charges:.2f}"],
+        ['Total Spend', f"${total_spend:.2f}"]
+    ]
+    sub_table = Table(sub_data, colWidths=[2*inch, 4*inch])
+    sub_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#3b82f6')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#dbeafe')])
+    ]))
+    elements.append(sub_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Usage & Support
+    elements.append(Paragraph("USAGE AND SUPPORT METRICS", heading_style))
+    usage_data = [
+        ['Metric', 'Value'],
+        ['Usage Frequency', f"{usage_frequency} times/month"],
+        ['Support Calls', str(support_calls)],
+        ['Payment Delay', f"{payment_delay} days"],
+        ['Days Since Last Interaction', str(days_since_last_interaction)]
+    ]
+    usage_table = Table(usage_data, colWidths=[2*inch, 4*inch])
+    usage_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#3b82f6')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#dbeafe')])
+    ]))
+    elements.append(usage_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Prediction Results
+    elements.append(Paragraph("PREDICTION RESULTS", heading_style))
+    
+    # Color coding for risk level
+    if risk_level == "High":
+        risk_bg_color = colors.HexColor('#fee2e2')
+        risk_border_color = colors.HexColor('#ef4444')
+    elif risk_level == "Medium":
+        risk_bg_color = colors.HexColor('#fef3c7')
+        risk_border_color = colors.HexColor('#f59e0b')
+    else:
+        risk_bg_color = colors.HexColor('#d1fae5')
+        risk_border_color = colors.HexColor('#10b981')
+    
+    pred_data = [
+        ['Metric', 'Value'],
+        ['Prediction', prediction_label],
+        ['Churn Probability', f"{prob:.1%}"],
+        ['Risk Level', risk_level],
+        ['P(No Churn)', f"{prob_array[0]:.4f}"],
+        ['P(Churn)', f"{prob_array[1]:.4f}"]
+    ]
+    pred_table = Table(pred_data, colWidths=[2*inch, 4*inch])
+    pred_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#3b82f6')),
+        ('BACKGROUND', (0, 3), (-1, 3), risk_bg_color),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#dbeafe')])
+    ]))
+    elements.append(pred_table)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Recommendations
+    elements.append(Paragraph("RECOMMENDATIONS", heading_style))
+    elements.append(Paragraph(recommendation.replace('\n', '<br/>'), styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Key Insights
+    elements.append(Paragraph("KEY INSIGHTS", heading_style))
+    if insights:
+        for insight in insights:
+            elements.append(Paragraph(f"• {insight}", styles['Normal']))
+    else:
+        elements.append(Paragraph("• Customer profile looks stable overall", styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Model Performance
+    elements.append(Paragraph("MODEL PERFORMANCE", heading_style))
+    elements.append(Paragraph(f"Model Accuracy: {model_accuracy:.1%}", styles['Normal']))
+    elements.append(Paragraph(f"Platform: Customer Churn Prediction System v2.0", styles['Normal']))
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 # Load the model first
 @st.cache_resource
@@ -317,7 +509,10 @@ with tab1:
                             f"{support_calls}"
                         ]
                     }
-                    st.table(pd.DataFrame(summary_data))
+                    # Convert to ensure proper types and avoid PyArrow conversion issues
+                    summary_df = pd.DataFrame(summary_data)
+                    summary_df = summary_df.astype(str)
+                    st.dataframe(summary_df, hide_index=True, use_container_width=True)
                     
                     # Recommendations
                     st.markdown("### Recommendations")
@@ -402,13 +597,37 @@ Model Accuracy: {model_data.get('accuracy', 0):.1%}
 Generated by: Customer Churn Prediction System v2.0
 """
                     
-                    # Download button
-                    st.download_button(
-                        label="Download Report as Text",
-                        data=report_content,
-                        file_name=f"Churn_Report_{customer_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                        mime="text/plain"
-                    )
+                    # Download buttons
+                    col_pdf, col_txt = st.columns(2)
+                    
+                    with col_pdf:
+                        # Generate PDF report
+                        if PDF_AVAILABLE:
+                            pdf_buffer = generate_pdf_report(
+                                customer_name, age, gender, tenure, monthly_charges, total_spend,
+                                contract_length, subscription_type, usage_frequency, support_calls,
+                                payment_delay, days_since_last_interaction, prediction_label,
+                                prob, risk_level, prob_array, insights, recommendation, model_data.get('accuracy', 0)
+                            )
+                            if pdf_buffer:
+                                st.download_button(
+                                    label="Download Report as PDF",
+                                    data=pdf_buffer,
+                                    file_name=f"Churn_Report_{customer_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                                    mime="application/pdf"
+                                )
+                            else:
+                                st.warning("PDF generation failed")
+                        else:
+                            st.info("PDF library not available. Use Text format instead.")
+                    
+                    with col_txt:
+                        st.download_button(
+                            label="Download Report as Text",
+                            data=report_content,
+                            file_name=f"Churn_Report_{customer_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain"
+                        )
                     
                 except Exception as e:
                     st.markdown(f'<div class="danger-box">Error making prediction: {str(e)}</div>', unsafe_allow_html=True)

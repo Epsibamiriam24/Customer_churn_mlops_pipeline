@@ -13,11 +13,6 @@ dvc
 pytest
 black
 flake8
-
-streamlit
-mlflow
-dvc
-python-multipart
-fastapi
-uvicorn
+reportlab
+pillow
 
