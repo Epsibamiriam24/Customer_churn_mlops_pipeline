@@ -1,4 +1,4 @@
-FROM python:3.9-slim AS builder
+FROM python:3.9-slim
 
 # Set working directory
 WORKDIR /app
@@ -31,16 +31,10 @@ ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
 # Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # Expose the port
 EXPOSE 8501
 
-# Command to run the Streamlit app (using JSON format for better signal handling)
-CMD ["streamlit", "run", "src/app/streamlit_app.py", \
-    "--server.port", "8501", \
-    "--server.address", "0.0.0.0", \
-    "--server.headless", "true", \
-    "--browser.serverAddress=0.0.0.0", \
-    "--server.enableCORS", "true", \
-    "--server.enableXsrfProtection", "true"]
+# Command to run the Streamlit app (using JSON array format for better signal handling)
+CMD ["streamlit", "run", "src/app/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
